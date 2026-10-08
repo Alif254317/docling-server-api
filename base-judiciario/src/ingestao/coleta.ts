@@ -2,7 +2,7 @@ import type pg from 'pg';
 import type { AlvoDjen, DjenConector } from '../connectors/djen/conector.js';
 import { gravarBruto } from '../db/bruto.js';
 import { emTransacao } from '../db/transacao.js';
-import { buscarMonitoramento } from '../domain/monitoramentos.js';
+import { buscarMonitoramento, type Monitoramento } from '../domain/monitoramentos.js';
 import { emitirEvento } from '../eventos/outbox.js';
 import { log } from '../log.js';
 import { contadorExecucoes, contadorItens } from '../metricas.js';
@@ -20,6 +20,28 @@ export interface ResultadoColeta {
 
 /** Depois de uma falha, tenta de novo antes do intervalo normal. */
 const REPETIR_FALHA_MIN = 10;
+/** Quanto a janela pode recuar quando a coleta ficou parada. */
+export const JANELA_MAX_DIAS = 30;
+
+/**
+ * Janela de disponibilização: do dia anterior à última coleta com sucesso (ou à
+ * criação do monitoramento) até hoje. Assim uma queda de dias não perde
+ * intimações; o dedupe por id do DJEN absorve a sobreposição.
+ */
+async function inicioJanela(pool: pg.Pool, m: Monitoramento, hoje: string): Promise<string> {
+  const r = await pool.query<{ ultima: Date | null }>(
+    `SELECT max(iniciado_em) AS ultima FROM execucao_coleta WHERE monitoramento_id = $1 AND situacao = 'ok'`,
+    [m.id],
+  );
+  const referencia = hojeSaoPaulo(r.rows[0]?.ultima ?? m.criado_em);
+  const desejado = somarDias(referencia < hoje ? referencia : hoje, -1);
+  const limite = somarDias(hoje, -JANELA_MAX_DIAS);
+  if (desejado < limite) {
+    log.warn({ monitoramentoId: m.id, desde: desejado }, `coleta parada há mais de ${JANELA_MAX_DIAS} dias; janela cortada`);
+    return limite;
+  }
+  return desejado;
+}
 
 /**
  * Spec 002: coleta o DJEN de um monitoramento, página por página. Cada página
@@ -42,7 +64,12 @@ export async function executarColetaDjen(
   );
   const execucaoId = Number(ex.rows[0]!.id);
   const hoje = hojeSaoPaulo(agora);
-  const base = { inicio: somarDias(hoje, -1), fim: hoje, contexto: { monitoramentoId: m.id } };
+  const inicio = await inicioJanela(pool, m, hoje);
+  const base = {
+    inicio,
+    fim: hoje,
+    contexto: { monitoramentoId: m.id, escritorioId: m.escritorio_id, gerarPrazos: m.tipo === 'oab' },
+  };
   const alvo: AlvoDjen =
     m.tipo === 'oab'
       ? { tipo: 'oab', numero: m.oab_numero!, uf: m.oab_uf!, ...base }
@@ -57,7 +84,7 @@ export async function executarColetaDjen(
           payloadBrutoId: bruto.id,
           resposta: pagina.resposta,
           coletadoEm: agora,
-          dono: { escritorioId: m.escritorio_id, monitoramentoId: m.id },
+          dono: { escritorioId: m.escritorio_id, monitoramentoId: m.id, gerarPrazos: m.tipo === 'oab' },
           emitirEventos: true,
         });
       });

@@ -74,6 +74,7 @@ describe('Spec 005 · AC-5 · extração de dias do texto', () => {
     ['PRAZO: 10 DIAS ÚTEIS', 10],
     ['para, no prazo legal de 30 (trinta) dias, contestar', 30],
     ['no prazo comum de dez dias', 10],
+    ['no prazo de vinte e cinco dias', 25],
   ])('"%s" → %i dias (texto)', (texto, dias) => {
     expect(extrairDias(texto)).toEqual({ dias, origem: 'texto', confirmar: false });
   });
@@ -92,5 +93,22 @@ describe('Spec 005 · AC-5 · extração de dias do texto', () => {
 
   it('ignora prazo em horas', () => {
     expect(extrairDias('no prazo de 48 horas')).toEqual({ dias: 5, origem: 'padrao', confirmar: true });
+  });
+
+  // Revisão: números fora do padrão "prazo de N dias" também contam para "o menor".
+  it.each([
+    ['prazo de 10 dias para o réu e 5 dias para o autor', 5],
+    ['Decorrido o prazo de 30 (trinta) dias sem manifestação, intime-se para pagar em 3 (três) dias', 3],
+    ['Manifeste-se em 5 (cinco) dias.', 5],
+  ])('"%s" → %i dias, a confirmar', (texto, dias) => {
+    expect(extrairDias(texto)).toEqual({ dias, origem: 'texto', confirmar: true });
+  });
+
+  it('dias corridos pedem conferência', () => {
+    expect(extrairDias('prazo de 15 (quinze) dias corridos')).toEqual({ dias: 15, origem: 'texto', confirmar: true });
+  });
+
+  it('"dias úteis" com um único prazo não pede conferência', () => {
+    expect(extrairDias('no prazo de 15 (quinze) dias úteis')).toEqual({ dias: 15, origem: 'texto', confirmar: false });
   });
 });

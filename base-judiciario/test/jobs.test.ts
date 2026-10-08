@@ -58,7 +58,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await workers?.fechar();
-  await filas?.manutencao.obliterate({ force: true }).catch(() => undefined);
+  await filas?.agenda.obliterate({ force: true }).catch(() => undefined);
+  await filas?.eventos.obliterate({ force: true }).catch(() => undefined);
   await filas?.djen.obliterate({ force: true }).catch(() => undefined);
   await filas?.datajud.obliterate({ force: true }).catch(() => undefined);
   await filas?.fechar();
@@ -84,8 +85,8 @@ describe('Fila de ponta a ponta (specs 002, 003, 004)', () => {
     const exec = await pool.query("SELECT situacao FROM execucao_coleta WHERE fonte = 'djen'");
     expect(exec.rows.map((r) => r.situacao)).toEqual(['ok']);
 
-    // entrega dos eventos pelo job de manutenção
-    await filas.manutencao.add('entregar-eventos', {});
+    // entrega dos eventos pela fila própria
+    await filas.eventos.add('entregar-eventos', {});
     await ate(async () => receptor.recebidas.length >= 6);
     const tipos = receptor.recebidas.map((r) => r.headers['x-evento-tipo']).sort();
     expect(tipos.filter((t) => t === 'comunicacao.nova')).toHaveLength(3);

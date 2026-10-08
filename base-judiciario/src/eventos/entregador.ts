@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { emTransacao } from '../db/transacao.js';
 import { log } from '../log.js';
@@ -10,6 +10,8 @@ export const MAX_TENTATIVAS = 10;
 /** Tempo em que um lote reservado fica invisível para outros entregadores. */
 const RESERVA_MIN = 5;
 const TIMEOUT_MS = 10_000;
+/** Entregas simultâneas por lote: 50 eventos × 10 s de timeout cabem com folga na reserva. */
+const PARALELO = 10;
 
 export async function criarWebhook(
   pool: pg.Pool,
@@ -78,6 +80,7 @@ export async function entregarLote(
 ): Promise<ResultadoLote> {
   const agora = opcoes.agora ?? new Date();
   const limite = opcoes.limite ?? 50;
+  const reserva = randomUUID();
   const lote = await emTransacao(pool, async (db) => {
     const r = await db.query<EventoReservado>(
       `SELECT e.id, e.escritorio_id, e.tipo, e.dados, e.criado_em, e.tentativas
@@ -91,52 +94,67 @@ export async function entregarLote(
     );
     if (r.rows.length) {
       await db.query(
-        `UPDATE evento SET proxima_tentativa_em = $2::timestamptz + make_interval(mins => $3) WHERE id = ANY($1)`,
-        [r.rows.map((x) => x.id), agora, RESERVA_MIN],
+        `UPDATE evento SET reserva = $4, proxima_tentativa_em = $2::timestamptz + make_interval(mins => $3)
+          WHERE id = ANY($1)`,
+        [r.rows.map((x) => x.id), agora, RESERVA_MIN, reserva],
       );
     }
     return r.rows;
   });
 
   const out: ResultadoLote = { reservados: lote.length, entregues: 0, falhas: 0, mortos: 0 };
-  const hooksPorEscritorio = new Map<string, { url: string; segredo: string }[]>();
-  for (const ev of lote) {
-    let hooks = hooksPorEscritorio.get(ev.escritorio_id);
-    if (!hooks) {
-      hooks = (
-        await pool.query<{ url: string; segredo: string }>(
+  const hooksPorEscritorio = new Map<string, Promise<{ url: string; segredo: string }[]>>();
+  const hooksDe = (esc: string) => {
+    let h = hooksPorEscritorio.get(esc);
+    if (!h) {
+      h = pool
+        .query<{ url: string; segredo: string }>(
           'SELECT url, segredo FROM webhook WHERE escritorio_id = $1 AND ativo ORDER BY criado_em',
-          [ev.escritorio_id],
+          [esc],
         )
-      ).rows;
-      hooksPorEscritorio.set(ev.escritorio_id, hooks);
+        .then((r) => r.rows);
+      hooksPorEscritorio.set(esc, h);
     }
+    return h;
+  };
+
+  const processar = async (ev: EventoReservado) => {
+    const hooks = await hooksDe(ev.escritorio_id);
     const erros = (await Promise.all(hooks.map((h) => enviar(h.url, h.segredo, ev)))).filter((x) => x !== null);
     const tentativas = ev.tentativas + 1;
+    // Só grava quem ainda detém a reserva: um "entregue" nunca volta a "pendente".
     if (erros.length === 0) {
       await pool.query(
-        `UPDATE evento SET situacao = 'entregue', tentativas = $2, entregue_em = $3, ultimo_erro = NULL WHERE id = $1`,
-        [ev.id, tentativas, agora],
+        `UPDATE evento SET situacao = 'entregue', tentativas = $2, entregue_em = $3, ultimo_erro = NULL, reserva = NULL
+          WHERE id = $1 AND reserva = $4 AND situacao = 'pendente'`,
+        [ev.id, tentativas, agora, reserva],
       );
       out.entregues++;
       contadorEntregas.inc({ resultado: 'entregue' });
-      continue;
+      return;
     }
     const morto = tentativas >= MAX_TENTATIVAS;
     const espera = ESPERAS_MIN[Math.min(tentativas, ESPERAS_MIN.length) - 1]!;
-    await pool.query(
-      `UPDATE evento SET situacao = $2, tentativas = $3, ultimo_erro = $4,
+    const upd = await pool.query(
+      `UPDATE evento SET situacao = $2, tentativas = $3, ultimo_erro = $4, reserva = NULL,
               proxima_tentativa_em = $5::timestamptz + make_interval(mins => $6)
-        WHERE id = $1`,
-      [ev.id, morto ? 'morto' : 'pendente', tentativas, erros.join('; '), agora, espera],
+        WHERE id = $1 AND reserva = $7 AND situacao = 'pendente'`,
+      [ev.id, morto ? 'morto' : 'pendente', tentativas, erros.join('; '), agora, espera, reserva],
     );
     out.falhas++;
-    if (morto) {
+    if (morto && upd.rowCount) {
       out.mortos++;
       log.error({ eventoId: ev.id, escritorioId: ev.escritorio_id, erros }, 'evento morto após o máximo de tentativas');
     }
     contadorEntregas.inc({ resultado: morto ? 'morto' : 'falha' });
-  }
+  };
+
+  const fila = [...lote];
+  await Promise.all(
+    Array.from({ length: Math.min(PARALELO, fila.length) }, async () => {
+      for (let ev = fila.shift(); ev; ev = fila.shift()) await processar(ev);
+    }),
+  );
   const pend = await pool.query<{ n: number }>("SELECT count(*)::int AS n FROM evento WHERE situacao = 'pendente'");
   medidorEventosPendentes.set(pend.rows[0]!.n);
   return out;

@@ -13,7 +13,12 @@ export interface PaginaDjen {
   resposta: unknown;
   coletadoEm: Date;
   /** Escritório e monitoramento donos da coleta; ausente = sem vínculo. */
-  dono?: { escritorioId: string; monitoramentoId: string | null };
+  dono?: {
+    escritorioId: string;
+    monitoramentoId: string | null;
+    /** Só monitoramento por OAB gera prazo: por processo vêm também intimações da outra parte. */
+    gerarPrazos: boolean;
+  };
   emitirEventos: boolean;
 }
 
@@ -141,6 +146,7 @@ export async function ingerirPaginaDjen(db: Db, p: PaginaDjen): Promise<Resultad
         },
       });
     }
+    if (!p.dono.gerarPrazos) continue;
     await gerarPrazo(
       db,
       {

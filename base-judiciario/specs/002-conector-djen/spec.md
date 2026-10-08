@@ -21,7 +21,10 @@ integral e é o gatilho de prazos. É a fonte nº 1 da base.
 | FR-5 | Emitir o evento `comunicacao.nova` uma única vez por comunicação e escritório. |
 | FR-6 | Registrar sucesso, falha, itens e novos por monitoramento a cada execução. |
 | FR-7 | Comunicação com número CNJ inválido não é descartada: vira `situacao = revisao` e emite `comunicacao.revisao`. |
-| FR-8 | Reprocessar todo o bruto do DJEN sem gerar eventos novos nem duplicatas. |
+| FR-8 | Reprocessar todo o bruto do DJEN sem gerar eventos novos nem duplicatas, religando o escritório mesmo que o monitoramento tenha sido apagado. |
+| FR-9 | A janela de cada coleta vai da véspera da última coleta com sucesso (ou da criação do monitoramento) até hoje, recuando no máximo 30 dias; frequência máxima de 1 dia. |
+| FR-10 | Item com data inválida vai para a lista de erros sem impedir a gravação dos demais itens da página. |
+| FR-11 | Monitoramento por número de processo traz todas as intimações do processo (inclusive para a outra parte): gera comunicação e evento, mas não gera prazo. Prazos vêm só do monitoramento por OAB. |
 
 ## Requisitos não funcionais
 - Até 2 h entre a disponibilização no DJEN e o evento (com frequência de 60 min).
@@ -35,11 +38,14 @@ integral e é o gatilho de prazos. É a fonte nº 1 da base.
 - **AC-4** Dado um número CNJ com dígito inválido, quando a intimação chega, então o bruto é guardado, a comunicação fica em revisão e um evento `comunicacao.revisao` é emitido.
 - **AC-5** Dado o bruto de várias coletas, quando o reprocessamento roda depois de apagar o normalizado, então o resultado normalizado é idêntico ao original e nenhum evento novo é criado.
 - **AC-6** Dado mais de uma página de resultados, quando a coleta roda, então todas as páginas são lidas e gravadas.
+- **AC-7** Dado que a última coleta com sucesso foi em 01/10 e as seguintes falharam, quando a coleta roda em 05/10, então a janela pedida é 30/09 a 05/10.
+- **AC-8** Dado uma página com um item de data inexistente, quando a coleta roda, então os demais itens são gravados e a coleta termina ok.
+- **AC-9** Dado um monitoramento por processo, quando chega uma intimação, então há comunicação e evento, e nenhum prazo.
 
 ## Privacidade (C8)
 Texto da intimação e nomes de partes ficam na base compartilhada; o acesso de
 cada escritório vem de `comunicacao_escritorio`, criado só para o escritório
-dono do monitoramento da OAB.
+dono do monitoramento (por OAB ou por processo; ver FR-11).
 
 ## Fora de escopo
 Cálculo de prazo (spec 005), Domicílio Judicial Eletrônico, busca por CPF/CNPJ, busca por nome.

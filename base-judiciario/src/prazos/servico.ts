@@ -5,11 +5,10 @@ import { extrairDias } from './extrair.js';
 
 type Db = Pick<pg.PoolClient, 'query'>;
 
-/** Feriados cadastrados para o tribunal (data → descrição). Nacionais vêm do calendário. */
+/** Feriados cadastrados para o tribunal e os nacionais cadastrados (data → descrição), além dos calculados. */
 export async function feriadosDoTribunal(db: Db, sigla: string | null): Promise<Map<string, string>> {
-  if (!sigla) return new Map();
   const r = await db.query<{ data: string; descricao: string }>(
-    'SELECT data::text AS data, descricao FROM feriado WHERE tribunal_sigla = $1',
+    'SELECT data::text AS data, descricao FROM feriado WHERE tribunal_sigla IS NULL OR tribunal_sigla = $1',
     [sigla],
   );
   return new Map(r.rows.map((x) => [x.data, x.descricao]));

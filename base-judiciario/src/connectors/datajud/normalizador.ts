@@ -28,11 +28,14 @@ export interface MovimentoDatajud {
 
 type Obj = Record<string, unknown>;
 
-/** `2026-01-15T10:30:00.000Z` ou `20260115103000` (horário de Brasília) → ISO UTC. */
+/** `2026-01-15T10:30:00.000Z`, ISO sem fuso ou `20260115103000` (os dois últimos em horário de Brasília) → ISO UTC. */
 export function parseDataHoraDatajud(v: unknown): string | null {
   if (typeof v !== 'string' || !v) return null;
   const c = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(v);
-  const iso = c ? `${c[1]}-${c[2]}-${c[3]}T${c[4]}:${c[5]}:${c[6]}-03:00` : v;
+  let iso = c ? `${c[1]}-${c[2]}-${c[3]}T${c[4]}:${c[5]}:${c[6]}-03:00` : v;
+  // ISO sem fuso é horário de Brasília, nunca o fuso do servidor (o hash do movimento depende disso).
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(iso)) iso += '-03:00';
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) iso += 'T00:00:00-03:00';
   const t = Date.parse(iso);
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 }

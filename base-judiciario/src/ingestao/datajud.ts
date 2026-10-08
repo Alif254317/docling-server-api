@@ -119,7 +119,8 @@ export async function sincronizarDatajud(
   const agora = opcoes.agora ?? new Date();
   const total: ResultadoDatajud = { encontrado: false, movimentos: 0, novos: 0 };
   try {
-    for await (const pagina of conector.buscar({ numeroCnj })) {
+    const contexto = opcoes.dono ? { escritorioId: opcoes.dono.escritorioId } : undefined;
+    for await (const pagina of conector.buscar({ numeroCnj, contexto })) {
       const r = await emTransacao(pool, async (db) => {
         const bruto = await gravarBruto(db, { ...pagina, coletadoEm: agora });
         return ingerirRespostaDatajud(db, {

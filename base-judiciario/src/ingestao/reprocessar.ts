@@ -11,12 +11,32 @@ export interface ResultadoReprocessamento {
 
 interface LinhaBruto {
   id: string;
-  requisicao: { contexto?: { monitoramentoId?: string } } & Record<string, unknown>;
+  requisicao: {
+    contexto?: { monitoramentoId?: string; escritorioId?: string; gerarPrazos?: boolean };
+  } & Record<string, unknown>;
   resposta: unknown;
   coletado_em: Date;
 }
 
 const LOTE = 200;
+
+/**
+ * Dono gravado no contexto da requisição. O escritório basta para religar o
+ * vínculo; o monitoramento só entra se ainda existir.
+ */
+async function donoDoContexto(db: pg.PoolClient, ctx: LinhaBruto['requisicao']['contexto']) {
+  if (!ctx?.escritorioId) return undefined;
+  const esc = await db.query('SELECT 1 FROM escritorio WHERE id = $1', [ctx.escritorioId]);
+  if (!esc.rowCount) return undefined;
+  const mon = ctx.monitoramentoId
+    ? await db.query('SELECT 1 FROM monitoramento WHERE id = $1', [ctx.monitoramentoId])
+    : { rowCount: 0 };
+  return {
+    escritorioId: ctx.escritorioId,
+    monitoramentoId: mon.rowCount ? ctx.monitoramentoId! : null,
+    gerarPrazos: ctx.gerarPrazos ?? true,
+  };
+}
 
 /**
  * Constituição C3: refaz o normalizado de uma fonte a partir do bruto, na ordem
@@ -35,27 +55,24 @@ export async function reprocessar(pool: pg.Pool, fonte: 'djen' | 'datajud'): Pro
       ultimo = Number(b.id);
       await emTransacao(pool, async (db) => {
         if (fonte === 'djen') {
-          const monId = b.requisicao.contexto?.monitoramentoId;
-          const m = monId
-            ? (await db.query<{ escritorio_id: string }>('SELECT escritorio_id FROM monitoramento WHERE id = $1', [monId]))
-                .rows[0]
-            : undefined;
           const r = await ingerirPaginaDjen(db, {
             payloadBrutoId: ultimo,
             resposta: b.resposta,
             coletadoEm: b.coletado_em,
-            dono: m && monId ? { escritorioId: m.escritorio_id, monitoramentoId: monId } : undefined,
+            dono: await donoDoContexto(db, b.requisicao.contexto),
             emitirEventos: false,
           });
           out.itens += r.itens;
           out.erros += r.erros.length;
         } else {
+          const dono = await donoDoContexto(db, b.requisicao.contexto);
           const r = await ingerirRespostaDatajud(db, {
             payloadBrutoId: ultimo,
             requisicao: b.requisicao,
             resposta: b.resposta,
             coletadoEm: b.coletado_em,
             emitirEventos: false,
+            dono: dono ? { escritorioId: dono.escritorioId } : undefined,
           });
           out.itens += r.movimentos;
         }

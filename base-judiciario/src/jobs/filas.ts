@@ -7,9 +7,11 @@ import type { DjenConector } from '../connectors/djen/conector.js';
 import { entregarLote } from '../eventos/entregador.js';
 import { executarColetaDjen } from '../ingestao/coleta.js';
 import { sincronizarDatajud } from '../ingestao/datajud.js';
+import { emTransacao } from '../db/transacao.js';
 import { log } from '../log.js';
 
-export const NOMES = { djen: 'coleta-djen', datajud: 'coleta-datajud', manutencao: 'manutencao' } as const;
+// Agenda e eventos em filas próprias: um webhook lento não atrasa o agendamento das coletas.
+export const NOMES = { djen: 'coleta-djen', datajud: 'coleta-datajud', agenda: 'agenda', eventos: 'eventos' } as const;
 
 export interface DadosDjen {
   monitoramentoId: string;
@@ -22,7 +24,8 @@ export interface DadosDatajud {
 export interface Filas {
   djen: Queue<DadosDjen>;
   datajud: Queue<DadosDatajud>;
-  manutencao: Queue;
+  agenda: Queue;
+  eventos: Queue;
   fechar(): Promise<void>;
 }
 
@@ -36,13 +39,16 @@ export function criarFilas(redis: Redis, prefixo = 'bj'): Filas {
   const padrao = { attempts: 3, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: 1000, removeOnFail: 5000 };
   const djen = new Queue<DadosDjen>(NOMES.djen, { ...opts, defaultJobOptions: padrao });
   const datajud = new Queue<DadosDatajud>(NOMES.datajud, { ...opts, defaultJobOptions: padrao });
-  const manutencao = new Queue(NOMES.manutencao, { ...opts, defaultJobOptions: { removeOnComplete: 100, removeOnFail: 1000 } });
+  const leve = { removeOnComplete: 100, removeOnFail: 1000 };
+  const agenda = new Queue(NOMES.agenda, { ...opts, defaultJobOptions: leve });
+  const eventos = new Queue(NOMES.eventos, { ...opts, defaultJobOptions: leve });
   return {
     djen,
     datajud,
-    manutencao,
+    agenda,
+    eventos,
     async fechar() {
-      await Promise.all([djen.close(), datajud.close(), manutencao.close()]);
+      await Promise.all([djen.close(), datajud.close(), agenda.close(), eventos.close()]);
     },
   };
 }
@@ -57,26 +63,35 @@ export async function enfileirarDatajud(filas: Filas, d: DadosDatajud, agora = n
 }
 
 /**
- * Spec 002 · FR-1: reserva os monitoramentos vencidos (avançando a próxima
- * coleta, com SKIP LOCKED para vários agendadores) e enfileira os jobs.
+ * Spec 002 · FR-1: enfileira os monitoramentos vencidos e só então adia a
+ * próxima coleta, na mesma transação (SKIP LOCKED para vários agendadores).
+ * Se o Redis falhar no meio, nada é adiado e o próximo ciclo tenta de novo;
+ * um job repetido é inofensivo porque a coleta é idempotente.
  */
 export async function agendarVencidos(pool: pg.Pool, filas: Filas, agora = new Date()): Promise<number> {
-  const { rows } = await pool.query<{ id: string; tipo: string; numero_cnj: string | null; escritorio_id: string }>(
-    `UPDATE monitoramento m SET proxima_coleta_em = $1::timestamptz + make_interval(mins => m.frequencia_min)
-      WHERE m.id IN (
-        SELECT id FROM monitoramento WHERE ativo AND proxima_coleta_em <= $1
-         ORDER BY proxima_coleta_em LIMIT 500 FOR UPDATE SKIP LOCKED)
-      RETURNING m.id, m.tipo, m.numero_cnj, m.escritorio_id`,
-    [agora],
-  );
   const slot = janela(agora, 1);
-  for (const m of rows) {
-    await filas.djen.add('coletar', { monitoramentoId: m.id }, { jobId: `djen-${m.id}-${slot}` });
-    if (m.tipo === 'processo' && m.numero_cnj) {
-      await enfileirarDatajud(filas, { numeroCnj: m.numero_cnj, escritorioId: m.escritorio_id }, agora);
+  return emTransacao(pool, async (db) => {
+    const { rows } = await db.query<{ id: string; tipo: string; numero_cnj: string | null; escritorio_id: string }>(
+      `SELECT id, tipo, numero_cnj, escritorio_id FROM monitoramento
+        WHERE ativo AND proxima_coleta_em <= $1
+        ORDER BY proxima_coleta_em LIMIT 500 FOR UPDATE SKIP LOCKED`,
+      [agora],
+    );
+    for (const m of rows) {
+      await filas.djen.add('coletar', { monitoramentoId: m.id }, { jobId: `djen-${m.id}-${slot}` });
+      if (m.tipo === 'processo' && m.numero_cnj) {
+        await enfileirarDatajud(filas, { numeroCnj: m.numero_cnj, escritorioId: m.escritorio_id }, agora);
+      }
     }
-  }
-  return rows.length;
+    if (rows.length) {
+      await db.query(
+        `UPDATE monitoramento SET proxima_coleta_em = $2::timestamptz + make_interval(mins => frequencia_min)
+          WHERE id = ANY($1)`,
+        [rows.map((m) => m.id), agora],
+      );
+    }
+    return rows.length;
+  });
 }
 
 export interface Dependencias {
@@ -89,7 +104,7 @@ export interface Dependencias {
   concorrencia?: number;
 }
 
-/** Sobe os workers de coleta, DataJud e manutenção (agenda + entrega de eventos). */
+/** Sobe os workers de coleta, DataJud, agenda e entrega de eventos. */
 export async function iniciarWorkers(d: Dependencias): Promise<{ fechar(): Promise<void> }> {
   const base = { connection: d.redis as unknown as ConnectionOptions, prefix: d.prefixo ?? 'bj' };
   const workers: Worker[] = [];
@@ -127,26 +142,26 @@ export async function iniciarWorkers(d: Dependencias): Promise<{ fechar(): Promi
   }
 
   workers.push(
+    new Worker(NOMES.agenda, async () => ({ agendados: await agendarVencidos(d.pool, d.filas) }), {
+      ...base,
+      concurrency: 1,
+    }),
     new Worker(
-      NOMES.manutencao,
-      async (job) => {
-        if (job.name === 'agendar') return { agendados: await agendarVencidos(d.pool, d.filas) };
-        if (job.name === 'entregar-eventos') {
-          let total = 0;
-          for (;;) {
-            const r = await entregarLote(d.pool, { limite: 50 });
-            total += r.entregues;
-            if (r.reservados < 50) return { entregues: total };
-          }
+      NOMES.eventos,
+      async () => {
+        let total = 0;
+        for (;;) {
+          const r = await entregarLote(d.pool, { limite: 50 });
+          total += r.entregues;
+          if (r.reservados < 50) return { entregues: total };
         }
-        throw new UnrecoverableError(`job desconhecido: ${job.name}`);
       },
       { ...base, concurrency: 1 },
     ),
   );
 
-  await d.filas.manutencao.upsertJobScheduler('agendar', { every: 60_000 }, { name: 'agendar' });
-  await d.filas.manutencao.upsertJobScheduler('entregar-eventos', { every: 15_000 }, { name: 'entregar-eventos' });
+  await d.filas.agenda.upsertJobScheduler('agendar', { every: 60_000 }, { name: 'agendar' });
+  await d.filas.eventos.upsertJobScheduler('entregar-eventos', { every: 15_000 }, { name: 'entregar-eventos' });
 
   for (const w of workers) {
     w.on('failed', (job, err) => log.error({ fila: w.name, jobId: job?.id, erro: err.message }, 'job falhou'));

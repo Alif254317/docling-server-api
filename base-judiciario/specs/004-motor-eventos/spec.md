@@ -17,7 +17,7 @@ por webhook. Um evento perdido pode ser um prazo perdido.
 | FR-2 | Entregar por `POST` JSON a cada webhook ativo do escritório, com cabeçalhos `X-Evento-Id`, `X-Evento-Tipo` e `X-Assinatura: sha256=<hmac>` do corpo. |
 | FR-3 | Resposta 2xx marca entregue; outra resposta ou erro de rede agenda nova tentativa com espera crescente (1, 5, 15, 60, 240 min…). |
 | FR-4 | Depois de 10 tentativas o evento fica `morto` e aparece na consulta de eventos não entregues. |
-| FR-5 | Vários entregadores em paralelo não entregam o mesmo evento ao mesmo tempo. |
+| FR-5 | Vários entregadores em paralelo não entregam o mesmo evento ao mesmo tempo; cada reserva tem um token e só quem a detém grava o resultado, então um evento entregue nunca volta a pendente. |
 | FR-6 | Escritório sem webhook: evento fica pendente, é lido por `GET /eventos?situacao=pendente` e marcado entregue por `POST /eventos/confirmacoes`. |
 
 ## Garantia de entrega
@@ -29,6 +29,7 @@ deve deduplicar por `X-Evento-Id`.
 - **AC-2** Dado um webhook que responde 500, quando o entregador roda, então o evento continua pendente com `tentativas = 1` e próxima tentativa no futuro.
 - **AC-3** Dado um evento com 9 tentativas falhas, quando a 10ª falha, então ele fica `morto`.
 - **AC-4** Dado dois entregadores simultâneos e 20 eventos, então cada evento é enviado exatamente uma vez.
+- **AC-5** Dado que a reserva de A expirou e B entregou o evento, quando A termina com falha, então o evento continua `entregue`.
 
 ## Privacidade (C8)
 Cada evento pertence a um escritório e só vai para os webhooks dele.

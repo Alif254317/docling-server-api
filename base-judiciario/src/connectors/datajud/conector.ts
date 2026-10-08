@@ -5,6 +5,8 @@ import { indiceDatajud } from './indice.js';
 
 export interface AlvoDatajud {
   numeroCnj: string;
+  /** Gravado com a requisição para o reprocessamento religar o escritório. */
+  contexto?: Record<string, unknown>;
 }
 
 export interface OpcoesDatajud {
@@ -43,6 +45,10 @@ export class DatajudConector implements Conector<AlvoDatajud> {
       },
       this.http,
     );
-    yield { fonte: 'datajud', requisicao: { indice, numeroCnj, consulta }, resposta };
+    yield {
+      fonte: 'datajud',
+      requisicao: { indice, numeroCnj, consulta, ...(alvo.contexto ? { contexto: alvo.contexto } : {}) },
+      resposta,
+    };
   }
 }

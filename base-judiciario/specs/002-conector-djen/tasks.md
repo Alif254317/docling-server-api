@@ -11,3 +11,4 @@
 - [x] T09 Fila BullMQ e agendador por monitoramento (FR-1)
 - [x] T10 Comando de reprocessamento (FR-8, AC-5)
 - [ ] T11 Rodar 7 dias em sombra com a OAB piloto e comparar com a conferência manual do escritório (depende de acesso de rede ao DJEN)
+- [x] T12 Revisão independente: janela desde a última coleta boa (FR-9, AC-7), item com data inválida isolado (FR-10, AC-8), prazo só por OAB (FR-11, AC-9), contexto do dono no bruto (FR-8) — `test/revisao.test.ts`

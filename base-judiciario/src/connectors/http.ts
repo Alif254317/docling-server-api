@@ -42,6 +42,8 @@ export const HTTP_PADRAO: Omit<OpcoesHttp, 'fonte'> = {
   timeoutMs: 30_000,
 };
 
+const RETRY_AFTER_MAX_MS = 300_000;
+
 function repetivel(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
@@ -77,7 +79,9 @@ export async function requisitarJson(url: string, init: RequestInit, op: OpcoesH
       const corpo = (await res.text()).slice(0, 300);
       ultimo = new ErroFonte(op.fonte, `HTTP ${res.status}: ${corpo}`, res.status);
       if (!repetivel(res.status)) throw ultimo;
-      espera = Math.min(op.esperaMaxMs, retryAfterMs(res.headers.get('retry-after')) ?? espera);
+      // Retry-After manda: respeitado até RETRY_AFTER_MAX_MS, mesmo acima de esperaMaxMs.
+      const pedido = retryAfterMs(res.headers.get('retry-after'));
+      if (pedido !== undefined) espera = Math.min(RETRY_AFTER_MAX_MS, pedido);
     } catch (e) {
       if (e instanceof ErroFonte && e.status !== undefined && !repetivel(e.status)) throw e;
       if (!(e instanceof ErroFonte)) {

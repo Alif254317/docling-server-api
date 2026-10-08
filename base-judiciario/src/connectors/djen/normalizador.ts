@@ -1,4 +1,5 @@
 import { parseCnj } from '../../domain/cnj.js';
+import { validarIso } from '../../prazos/datas.js';
 
 /** Spec 002: resposta da API Comunica → comunicações normalizadas (função pura, C3). */
 
@@ -42,9 +43,14 @@ function texto(o: Obj, ...nomes: string[]): string | null {
 function dataIso(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const iso = /^(\d{4}-\d{2}-\d{2})/.exec(v);
-  if (iso) return iso[1]!;
   const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(v);
-  return br ? `${br[3]}-${br[2]}-${br[1]}` : null;
+  const d = iso ? iso[1]! : br ? `${br[3]}-${br[2]}-${br[1]}` : null;
+  if (!d) return null;
+  try {
+    return validarIso(d);
+  } catch {
+    return null;
+  }
 }
 
 function lista(v: unknown): Obj[] {
@@ -55,7 +61,7 @@ export function normalizarItemDjen(it: Obj): ComunicacaoNormalizada {
   const id = Number(campo(it, 'id', 'idComunicacao'));
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('item sem id numérico');
   const data = dataIso(campo(it, 'data_disponibilizacao', 'dataDisponibilizacao', 'datadisponibilizacao'));
-  if (!data) throw new Error(`item ${id} sem data de disponibilização`);
+  if (!data) throw new Error(`item ${id} sem data de disponibilização válida`);
   const numeroOriginal =
     texto(it, 'numero_processo', 'numeroProcesso', 'numeroprocessocommascara', 'numeroProcessoComMascara') ?? '';
 

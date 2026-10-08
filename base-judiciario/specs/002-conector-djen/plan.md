@@ -20,7 +20,7 @@
 - `src/jobs/` — fila BullMQ `coleta`, agendador que enfileira monitoramentos vencidos com `jobId` determinístico.
 
 ## Decisões
-- Janela de consulta: de ontem até hoje (fuso São Paulo), para pegar disponibilizações tardias; o dedupe por `id_djen` absorve a sobreposição.
+- Janela de consulta: da véspera da última coleta com sucesso até hoje (fuso São Paulo), no máximo 30 dias; o dedupe por `id_djen` absorve a sobreposição. A requisição gravada no bruto leva o contexto (`monitoramentoId`, `escritorioId`, `gerarPrazos`) para o reprocessamento.
 - Evento gravado na mesma transação da comunicação (outbox), com chave `comunicacao.nova:<id>:<escritorio>` única → FR-5.
 - Reprocessamento usa a mesma função de upsert com `emitirEventos=false`.
 - Data de publicação = primeiro dia útil seguinte à disponibilização (Lei 11.419/2006, art. 4º, §3º), calculada pelo módulo de prazos.

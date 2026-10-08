@@ -1,6 +1,6 @@
 # Status — 2026-10-08
 
-Fase 1 (núcleo) construída e testada contra fontes simuladas. Falta o que
+Fase 1 (núcleo) construída e testada contra fontes simuladas: 83 testes, todos verdes. Falta o que
 depende de rede até o CNJ e de pessoas: os spikes da fase 0 e a validação com o
 escritório piloto.
 
@@ -19,6 +19,18 @@ escritório piloto.
 Também verificado à mão: API e worker sobem com `npm run api` e `npm run worker`;
 sem acesso ao CNJ, a coleta falha de forma registrada (`execucao_coleta.situacao = falha`
 e evento `coleta.falhou`), como manda a spec 002 · AC-3.
+
+## Revisão independente
+
+Um agente revisor, sem contexto da construção, procurou bugs e achou 11. Todos
+foram corrigidos, com um teste em `test/revisao.test.ts` ou `test/prazos.test.ts`
+que falha no código antigo e passa no novo (15 testes de regressão). Os mais graves:
+
+1. A extração de dias olhava só "prazo de N dias": "prazo de 10 dias para o réu e 5 para o autor" virava 10, `aberto`. Agora todo "N dias" conta, vale o menor e pede conferência.
+2. Um entregador lento podia reverter um evento já entregue para `pendente`. Agora a reserva tem token.
+3. A janela de coleta era fixa em ontem–hoje: uma queda de dois dias perdia intimações para sempre. Agora começa na véspera da última coleta com sucesso (até 30 dias).
+4. Um item com data inexistente derrubava a página inteira em toda coleta. Agora vai para a lista de erros.
+5. Monitorar por número de processo gerava prazo para intimações da parte contrária. Agora só o monitoramento por OAB gera prazo.
 
 ## Pendente (não dá para fazer daqui)
 
@@ -44,3 +56,4 @@ e evento `coleta.falhou`), como manda a spec 002 · AC-3.
    separada; pode virar repositório próprio sem mudanças.
 5. **Segredo do webhook no banco** até existir o cofre (ADR-001).
 6. **Spec 013 (API interna)** foi criada; não estava no mapa do plano.
+7. **Monitoramento por processo não gera prazo** (só comunicação e evento), porque o DJEN devolve também as intimações da outra parte.

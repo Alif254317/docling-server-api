@@ -16,14 +16,21 @@ export interface Monitoramento {
   frequencia_min: number;
   ativo: boolean;
   proxima_coleta_em: Date;
+  criado_em: Date;
 }
+
+/** Uma coleta por dia no mínimo: a janela de coleta cobre o intervalo desde a última com sucesso. */
+export const FREQUENCIA_MAX_MIN = 1440;
 
 export class MonitoramentoInvalido extends Error {}
 export class MonitoramentoDuplicado extends Error {}
 
 export function validarMonitoramento(m: NovoMonitoramento): NovoMonitoramento {
-  if (m.frequenciaMin !== undefined && (!Number.isInteger(m.frequenciaMin) || m.frequenciaMin < 5)) {
-    throw new MonitoramentoInvalido('frequência mínima é 5 minutos');
+  if (
+    m.frequenciaMin !== undefined &&
+    (!Number.isInteger(m.frequenciaMin) || m.frequenciaMin < 5 || m.frequenciaMin > FREQUENCIA_MAX_MIN)
+  ) {
+    throw new MonitoramentoInvalido(`frequência deve ficar entre 5 e ${FREQUENCIA_MAX_MIN} minutos`);
   }
   if (m.tipo === 'oab') {
     const numero = m.numero.replace(/\D/g, '');

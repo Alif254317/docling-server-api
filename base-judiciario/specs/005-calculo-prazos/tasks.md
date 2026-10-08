@@ -8,3 +8,4 @@
 - [x] T06 Serviço: prazo + evento por escritório (FR-4)
 - [x] T07 `POST /prazos/calcular` (FR-5)
 - [ ] T08 Validar com 50 intimações reais conferidas pelo advogado piloto
+- [x] T09 Revisão independente: todo "N dias" do texto conta, dias corridos pedem conferência, feriados nacionais cadastrados valem — `test/prazos.test.ts`, `test/revisao.test.ts`
