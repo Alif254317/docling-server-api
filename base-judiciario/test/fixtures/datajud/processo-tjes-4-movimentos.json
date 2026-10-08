@@ -1,0 +1,89 @@
+{
+  "took": 12,
+  "timed_out": false,
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "api_publica_tjes",
+        "_id": "TJES_436_G1_50001233120268080024",
+        "_score": 1,
+        "_source": {
+          "numeroProcesso": "50001233120268080024",
+          "classe": {
+            "codigo": 7,
+            "nome": "Procedimento Comum Cível"
+          },
+          "sistema": {
+            "codigo": 1,
+            "nome": "Pje"
+          },
+          "formato": {
+            "codigo": 1,
+            "nome": "Eletrônico"
+          },
+          "tribunal": "TJES",
+          "dataHoraUltimaAtualizacao": "2026-10-07T09:20:00.000Z",
+          "grau": "G1",
+          "@timestamp": "2026-10-06T03:00:00.000Z",
+          "dataAjuizamento": "20260115103000",
+          "movimentos": [
+            {
+              "codigo": 26,
+              "nome": "Distribuição",
+              "dataHora": "2026-01-15T10:30:00.000Z",
+              "complementosTabelados": [
+                {
+                  "codigo": 2,
+                  "valor": 1,
+                  "nome": "sorteio",
+                  "descricao": "tipo_de_distribuicao_redistribuicao"
+                }
+              ]
+            },
+            {
+              "codigo": 11010,
+              "nome": "Mero expediente",
+              "dataHora": "2026-03-02T14:00:00.000Z"
+            },
+            {
+              "codigo": 60,
+              "nome": "Expedição de documento",
+              "dataHora": "20261005120000",
+              "complementosTabelados": [
+                {
+                  "codigo": 4,
+                  "valor": 107,
+                  "nome": "Intimação",
+                  "descricao": "tipo_de_documento"
+                }
+              ]
+            },
+            {
+              "codigo": 51,
+              "nome": "Conclusão",
+              "dataHora": "2026-10-07T09:15:00.000Z"
+            }
+          ],
+          "id": "TJES_436_G1_50001233120268080024",
+          "nivelSigilo": 0,
+          "orgaoJulgador": {
+            "codigoMunicipioIBGE": 3205309,
+            "codigo": 1234,
+            "nome": "1ª Vara Cível de Vitória"
+          },
+          "assuntos": [
+            {
+              "codigo": 7619,
+              "nome": "Indenização por Dano Moral"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "status": "success",
+  "message": "Sucesso",
+  "count": 3,
+  "items": [
+    {
+      "id": 480001,
+      "data_disponibilizacao": "2026-10-05",
+      "siglaTribunal": "TJES",
+      "tipoComunicacao": "Intimação",
+      "nomeOrgao": "1ª Vara Cível de Vitória",
+      "texto": "Intime-se a parte autora para manifestação no prazo de 5 (cinco) dias.",
+      "numero_processo": "50001233120268080024",
+      "meio": "D",
+      "link": "https://pje.tjes.jus.br/exemplo/480001",
+      "tipoDocumento": "Despacho",
+      "nomeClasse": "PROCEDIMENTO COMUM CÍVEL",
+      "codigoClasse": 7,
+      "numeroComunicacao": 101,
+      "ativo": true,
+      "hash": "a1b2c3",
+      "status": "P",
+      "meiocompleto": "Diário de Justiça Eletrônico Nacional",
+      "numeroprocessocommascara": "5000123-31.2026.8.08.0024",
+      "destinatarios": [{ "nome": "MARIA EXEMPLO", "polo": "A", "comunicacao_id": 480001 }],
+      "destinatarioadvogados": [
+        {
+          "id": 1,
+          "comunicacao_id": 480001,
+          "advogado_id": 77,
+          "advogado": { "id": 77, "nome": "ADVOGADA PILOTO", "numero_oab": "12345", "uf_oab": "ES" }
+        }
+      ]
+    },
+    {
+      "id": 480002,
+      "data_disponibilizacao": "2026-10-05",
+      "siglaTribunal": "TJES",
+      "tipoComunicacao": "Intimação",
+      "nomeOrgao": "3ª Vara de Família de Vila Velha",
+      "texto": "Fica a parte intimada para, no prazo de quinze dias, apresentar contrarrazões.",
+      "numero_processo": "00123452520258080001",
+      "meio": "D",
+      "link": "https://pje.tjes.jus.br/exemplo/480002",
+      "tipoDocumento": "Decisão",
+      "nomeClasse": "DIVÓRCIO LITIGIOSO",
+      "codigoClasse": 12541,
+      "numeroComunicacao": 102,
+      "ativo": true,
+      "hash": "d4e5f6",
+      "status": "P",
+      "meiocompleto": "Diário de Justiça Eletrônico Nacional",
+      "numeroprocessocommascara": "0012345-25.2025.8.08.0001",
+      "destinatarios": [{ "nome": "JOÃO EXEMPLO", "polo": "P", "comunicacao_id": 480002 }],
+      "destinatarioadvogados": [
+        {
+          "id": 2,
+          "comunicacao_id": 480002,
+          "advogado_id": 77,
+          "advogado": { "id": 77, "nome": "ADVOGADA PILOTO", "numero_oab": "12345", "uf_oab": "ES" }
+        }
+      ]
+    },
+    {
+      "id": 480003,
+      "data_disponibilizacao": "2026-10-05",
+      "siglaTribunal": "TRT17",
+      "tipoComunicacao": "Intimação",
+      "nomeOrgao": "1ª Vara do Trabalho de Vitória",
+      "texto": "Vistos. Designo audiência. Intimem-se.",
+      "numero_processo": "10004562320265170001",
+      "meio": "D",
+      "link": "https://pje.trt17.jus.br/exemplo/480003",
+      "tipoDocumento": "Despacho",
+      "nomeClasse": "AÇÃO TRABALHISTA - RITO ORDINÁRIO",
+      "codigoClasse": 985,
+      "numeroComunicacao": 103,
+      "ativo": true,
+      "hash": "0a0b0c",
+      "status": "P",
+      "meiocompleto": "Diário de Justiça Eletrônico Nacional",
+      "numeroprocessocommascara": "1000456-23.2026.5.17.0001",
+      "destinatarios": [{ "nome": "EMPRESA EXEMPLO LTDA", "polo": "P", "comunicacao_id": 480003 }],
+      "destinatarioadvogados": [
+        {
+          "id": 3,
+          "comunicacao_id": 480003,
+          "advogado_id": 77,
+          "advogado": { "id": 77, "nome": "ADVOGADA PILOTO", "numero_oab": "12345", "uf_oab": "ES" }
+        }
+      ]
+    }
+  ]
+}
