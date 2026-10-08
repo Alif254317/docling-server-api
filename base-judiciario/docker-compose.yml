@@ -1,0 +1,35 @@
+# Ambiente local: banco, Redis, API e workers.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: base_judiciario
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+  redis:
+    image: redis:7
+    ports: ['6379:6379']
+  api:
+    image: node:22
+    working_dir: /app
+    command: sh -c "npm ci && npm run migrate && npm run api"
+    environment:
+      DATABASE_URL: postgres://postgres@postgres:5432/base_judiciario
+      REDIS_URL: redis://redis:6379
+    env_file: [{ path: .env, required: false }]
+    ports: ['3000:3000']
+    volumes: ['.:/app']
+    depends_on: [postgres, redis]
+  worker:
+    image: node:22
+    working_dir: /app
+    command: sh -c "npm ci && npm run worker"
+    environment:
+      DATABASE_URL: postgres://postgres@postgres:5432/base_judiciario
+      REDIS_URL: redis://redis:6379
+    env_file: [{ path: .env, required: false }]
+    volumes: ['.:/app']
+    depends_on: [api]
+volumes:
+  pgdata:

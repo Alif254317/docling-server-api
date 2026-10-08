@@ -82,7 +82,8 @@ export async function requisitarJson(url: string, init: RequestInit, op: OpcoesH
       if (e instanceof ErroFonte && e.status !== undefined && !repetivel(e.status)) throw e;
       if (!(e instanceof ErroFonte)) {
         contadorRequisicoesFonte.inc({ fonte: op.fonte, status: 'erro_rede' });
-        ultimo = new ErroFonte(op.fonte, `falha de rede: ${(e as Error).message}`);
+        const causa = (e as { cause?: { code?: string } }).cause?.code;
+        ultimo = new ErroFonte(op.fonte, `falha de rede: ${(e as Error).message}${causa ? ` (${causa})` : ''}`);
       } else {
         ultimo = e;
       }

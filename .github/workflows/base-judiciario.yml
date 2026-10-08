@@ -1,0 +1,42 @@
+name: base-judiciario
+
+on:
+  push:
+    paths: ['base-judiciario/**', '.github/workflows/base-judiciario.yml']
+  pull_request:
+    paths: ['base-judiciario/**', '.github/workflows/base-judiciario.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: base-judiciario
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: base_judiciario_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:5432/base_judiciario_test
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: base-judiciario/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:licenses
+      - run: npm test

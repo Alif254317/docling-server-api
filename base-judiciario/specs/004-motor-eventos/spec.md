@@ -18,7 +18,7 @@ por webhook. Um evento perdido pode ser um prazo perdido.
 | FR-3 | Resposta 2xx marca entregue; outra resposta ou erro de rede agenda nova tentativa com espera crescente (1, 5, 15, 60, 240 min…). |
 | FR-4 | Depois de 10 tentativas o evento fica `morto` e aparece na consulta de eventos não entregues. |
 | FR-5 | Vários entregadores em paralelo não entregam o mesmo evento ao mesmo tempo. |
-| FR-6 | Escritório sem webhook: evento fica disponível pela API (`GET /eventos`) e é marcado entregue por consulta. |
+| FR-6 | Escritório sem webhook: evento fica pendente, é lido por `GET /eventos?situacao=pendente` e marcado entregue por `POST /eventos/confirmacoes`. |
 
 ## Garantia de entrega
 Criação exatamente uma vez (chave única). Entrega pelo menos uma vez: o receptor
