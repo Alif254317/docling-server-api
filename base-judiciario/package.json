@@ -1,0 +1,41 @@
+{
+  "name": "base-judiciario",
+  "version": "0.1.0",
+  "description": "Base própria de dados do Judiciário: coleta, normaliza e monitora processos e intimações",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "tsx src/cli/migrate.ts",
+    "reprocessar": "tsx src/cli/reprocessar.ts",
+    "api": "tsx src/cli/api.ts",
+    "worker": "tsx src/cli/worker.ts",
+    "escritorio:criar": "tsx src/cli/criar-escritorio.ts",
+    "spike:djen": "tsx scripts/spike-djen.ts",
+    "spike:datajud": "tsx scripts/spike-datajud.ts",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "check": "npm run typecheck && npm run check:licenses && npm test"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bullmq": "^6.3.11",
+    "fastify": "^5.12.5",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "prom-client": "^15.1.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  }
+}
